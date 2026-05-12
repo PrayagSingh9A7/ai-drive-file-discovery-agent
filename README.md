@@ -1,203 +1,164 @@
-# AI-Powered Google Drive File Discovery Assistant
+````md
+# AI Drive File Discovery Agent
 
-A production-ready FastAPI + Streamlit application that uses LangChain and an LLM to translate natural-language chat requests into Google Drive API `q` queries. Searches are restricted to one configured Google Drive folder through a service account.
+A conversational AI-powered Google Drive search assistant built using FastAPI, LangChain, Groq LLMs, and Streamlit.
+
+The assistant allows users to search, filter, and discover files inside a designated Google Drive folder using natural language queries.
+
+---
 
 ## Features
 
-- Conversational Streamlit chat UI with chat history and result cards
-- FastAPI backend with `POST /chat`
-- LangChain tool-calling agent with a custom `DriveSearchTool`
-- Gemini by default, configurable for OpenAI or Groq
-- Google Drive `files.list()` integration with pagination
-- Searches restricted to `GOOGLE_DRIVE_FOLDER_ID`
-- Supports `name contains`, exact `name =`, `mimeType`, `fullText`, and `modifiedTime` filters
-- Service account authentication
-- Deployment-ready for Render and Railway
+- Conversational AI chatbot
+- Google Drive file discovery
+- Natural language search
+- Dynamic Google Drive q query generation
+- Search by:
+  - exact filename
+  - partial filename
+  - mimeType
+  - fullText
+  - modified date
+- Streamlit chat interface
+- FastAPI backend
+- LangChain tool-calling agent
+- Groq/OpenAI/Gemini provider support
+
+---
+
+## Tech Stack
+
+### Backend
+- FastAPI
+- LangChain
+- Google Drive API
+
+### Frontend
+- Streamlit
+
+### LLM
+- Groq Llama 3.3 70B
+
+---
 
 ## Project Structure
 
-```text
+```bash
 project/
-|-- backend/
-|   |-- __init__.py
-|   |-- main.py
-|   |-- agent.py
-|   |-- drive_tool.py
-|   |-- config.py
-|   `-- requirements.txt
-|-- frontend/
-|   `-- app.py
-|-- requirements.txt
-|-- .env.example
-`-- README.md
-```
+│
+├── backend/
+│   ├── main.py
+│   ├── agent.py
+│   ├── drive_tool.py
+│   ├── config.py
+│
+├── frontend/
+│   ├── app.py
+│
+├── requirements.txt
+├── .env.example
+├── README.md
+````
+
+---
 
 ## Setup
 
-1. Create and activate a virtual environment.
+### 1. Clone repository
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+git clone <repo-url>
+cd ai-drive-file-discovery-agent
 ```
 
-On Windows PowerShell:
+---
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+### 2. Create virtual environment
+
+```bash
+python -m venv venv
 ```
 
-2. Install dependencies.
+Activate:
+
+```bash
+venv\Scripts\activate
+```
+
+---
+
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Create your local environment file.
+---
 
-```bash
-cp .env.example .env
-```
+### 4. Configure environment variables
 
-Fill in:
+Create `.env` file:
 
 ```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your-gemini-api-key
-GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/service-account.json
-GOOGLE_DRIVE_FOLDER_ID=your-folder-id
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_api_key
+
+GOOGLE_APPLICATION_CREDENTIALS=service-account.json
+GOOGLE_DRIVE_FOLDER_ID=your_folder_id
+
+API_BASE_URL=http://localhost:8000
 ```
 
-## Google Cloud Setup
+---
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/).
-2. Create or select a project.
-3. Enable the **Google Drive API**.
-4. Go to **IAM & Admin > Service Accounts**.
-5. Create a service account, then create a JSON key.
-6. Store the JSON key somewhere safe and set `GOOGLE_APPLICATION_CREDENTIALS` to its absolute path.
-
-## Share the Drive Folder
-
-1. Open the Google Drive folder that the assistant should search.
-2. Click **Share**.
-3. Add the service account email, usually ending in `iam.gserviceaccount.com`.
-4. Give it **Viewer** permission.
-5. Copy the folder ID from the URL:
-
-```text
-https://drive.google.com/drive/folders/FOLDER_ID_HERE
-```
-
-Set that value as `GOOGLE_DRIVE_FOLDER_ID`.
-
-## Run Locally
-
-Start the backend:
+### 5. Run backend
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-Start the frontend in another terminal:
+---
+
+### 6. Run frontend
 
 ```bash
 streamlit run frontend/app.py
 ```
 
-Open the Streamlit URL, usually `http://localhost:8501`.
+---
 
-## Example Requests
+## Example Queries
 
-```text
-Find pdf reports from last week
-Show images related to invoices
-Find my finance sheet
-Only the recent ones
-Search text files mentioning onboarding
-Find the exact file named Quarterly Report.pdf
-```
+* Find pdf files
+* Show images
+* Find invoice documents
+* Find recent reports
+* Find files modified last week
 
-The LLM dynamically generates Google Drive query fragments. The backend tool adds:
+---
 
-```text
-'<GOOGLE_DRIVE_FOLDER_ID>' in parents and trashed = false
-```
+## Google Drive Setup
 
-## API
+1. Create a Google Cloud project
+2. Enable Google Drive API
+3. Create a Service Account
+4. Download the JSON credentials file
+5. Share your Drive folder with the service account email
+6. Add the folder ID to `.env`
 
-### `POST /chat`
+---
 
-Request:
+## Deployment
 
-```json
-{
-  "message": "Find pdf reports from last week",
-  "session_id": "user-session-1"
-}
-```
+* Backend: Render
+* Frontend: Streamlit Community Cloud
 
-Response:
+---
 
-```json
-{
-  "answer": "I found 3 PDF report files modified recently.",
-  "files": [
-    {
-      "id": "abc123",
-      "name": "Weekly Report.pdf",
-      "mimeType": "application/pdf",
-      "modifiedTime": "2026-05-08 10:15 UTC",
-      "webViewLink": "https://drive.google.com/file/...",
-      "webContentLink": "https://drive.google.com/uc?..."
-    }
-  ],
-  "generated_query": "'folder-id' in parents and trashed = false and (mimeType='application/pdf' and name contains 'report')"
-}
-```
+## Author
 
-## Deployment: Render
+Prayag Singh
 
-Backend web service:
 
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-- Add environment variables from `.env.example`
-- For service account JSON, either use a Render secret file or store JSON in a secret and write it during startup.
 
-Frontend web service:
 
-- Build command: `pip install -r requirements.txt`
-- Start command: `streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0`
-- Set `API_BASE_URL` to the deployed backend URL.
-
-## Deployment: Railway
-
-Backend:
-
-```bash
-railway up
-```
-
-Set the start command:
-
-```bash
-uvicorn backend.main:app --host 0.0.0.0 --port $PORT
-```
-
-Frontend:
-
-```bash
-streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0
-```
-
-Set `API_BASE_URL` to the backend service URL and configure all LLM and Google Drive variables.
-
-## Notes for Production
-
-- Use a persistent store such as Redis or Postgres for conversation memory across backend restarts.
-- Keep service account keys in secret managers, not in the repository.
-- Restrict CORS to your deployed frontend domain.
-- Tune `DRIVE_PAGE_SIZE` and `DRIVE_MAX_PAGES` for larger folders.
-- Consider audit logging for file discovery activity in regulated environments.
