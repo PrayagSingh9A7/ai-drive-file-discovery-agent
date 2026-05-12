@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
@@ -38,8 +40,6 @@ class DriveFile(BaseModel):
 
 
 def escape_drive_literal(value: str) -> str:
-    """Escape a value for single-quoted Google Drive q string literals."""
-
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
@@ -47,14 +47,17 @@ def combine_with_folder_restriction(user_query: str, folder_id: str) -> str:
     folder_clause = f"'{escape_drive_literal(folder_id)}' in parents"
     base_clauses = [folder_clause, "trashed = false"]
     clean_query = (user_query or "").strip()
+
     if clean_query:
         return " and ".join([*base_clauses, f"({clean_query})"])
+
     return " and ".join(base_clauses)
 
 
 def normalize_modified_time(value: str | None) -> str | None:
     if not value:
         return None
+
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         return parsed.strftime("%Y-%m-%d %H:%M UTC")
@@ -70,21 +73,39 @@ class GoogleDriveClient:
     @property
     def service(self) -> Any:
         if self._service is None:
-            if not self.settings.google_application_credentials:
-                raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS is not configured.")
-            credentials = service_account.Credentials.from_service_account_file(
-                self.settings.google_application_credentials,
+
+            service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+            if not service_account_json:
+                raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON is missing.")
+
+            service_account_info = json.loads(service_account_json)
+
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
                 scopes=DRIVE_SCOPES,
             )
-            self._service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+            self._service = build(
+                "drive",
+                "v3",
+                credentials=credentials,
+                cache_discovery=False,
+            )
+
         return self._service
 
     def search_files(self, query: str, page_size: int | None = None) -> dict[str, Any]:
         if not self.settings.google_drive_folder_id:
             raise RuntimeError("GOOGLE_DRIVE_FOLDER_ID is not configured.")
 
-        restricted_query = combine_with_folder_restriction(query, self.settings.google_drive_folder_id)
+        restricted_query = combine_with_folder_restriction(
+            query,
+            self.settings.google_drive_folder_id,
+        )
+
         page_limit = page_size or self.settings.drive_page_size
+
         files: list[dict[str, Any]] = []
         next_page_token: str | None = None
         pages_fetched = 0
@@ -100,16 +121,19 @@ class GoogleDriveClient:
                         pageSize=page_limit,
                         pageToken=next_page_token,
                         orderBy="modifiedTime desc",
-                        supportsAllDrives=True,
-                        includeItemsFromAllDrives=True,
                     )
                     .execute()
                 )
+
                 files.extend(response.get("files", []))
+
                 next_page_token = response.get("nextPageToken")
+
                 pages_fetched += 1
+
                 if not next_page_token:
                     break
+
         except HttpError as exc:
             logger.exception("Google Drive API search failed")
             details = getattr(exc, "error_details", None) or str(exc)
@@ -139,15 +163,15 @@ class GoogleDriveClient:
 
 
 class DriveSearchTool(BaseTool):
-    """LangChain tool that searches Google Drive with a generated q query."""
-
     name: str = "drive_search"
+
     description: str = (
-        "Search files in the configured Google Drive folder. Input must be a valid Google Drive API "
-        "q query fragment using fields like name, mimeType, fullText, and modifiedTime. The tool "
-        "automatically restricts results to the configured parent folder and excludes trashed files."
+        "Search files in the configured Google Drive folder. "
+        "Input must be a valid Google Drive API q query fragment."
     )
+
     args_schema: type[BaseModel] = DriveSearchInput
+
     _client: GoogleDriveClient = PrivateAttr()
 
     def __init__(self, client: GoogleDriveClient | None = None, **kwargs: Any) -> None:
